@@ -1,0 +1,9 @@
+numpy==1.26.4
+opencv-python
+onnxruntime-gpu
+insightface
+gradio==6.19.0
+requests
+tqdm
+imageio-ffmpeg
+mediapipe==0.10.14

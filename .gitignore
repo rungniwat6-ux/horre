@@ -1,0 +1,37 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+conda-env/
+
+# Large model weights (exclude from GitHub - downloaded automatically via downloader script)
+models/*.onnx
+models/GFPGAN*
+models/inswapper*
+models/face_occluder*
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Output/Temporary video & images
+*.mp4
+*_temp.mp4
+*.png
+*.jpg
+*.jpeg
+temp/
+tmp/
+
+# Gradio / IDE settings
+.gradio/
+.idea/
+.vscode/

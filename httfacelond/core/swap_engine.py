@@ -256,7 +256,7 @@ class SwapEngine:
             occluder_session = self.occluder_session
         return generate_occlusion_mask(face_crop, occluder_session)
 
-    def _soften_face_mask(self, mask, face_h, face_w):
+    def _soften_face_mask(self, mask, face_h, face_w, conservative=False):
         """
         Builds a wider, smoother alpha transition around the face hull.
         This reduces visible cheek/jaw seams without expanding far enough to cover hair or hands.
@@ -264,11 +264,14 @@ class SwapEngine:
         mask_u8 = np.clip(mask, 0, 255).astype(np.uint8)
         face_size = max(face_h, face_w)
 
-        dilate_size = int(face_size * 0.035)
+        dilate_ratio = 0.018 if conservative else 0.035
+        blur_ratio = 0.16 if conservative else 0.22
+
+        dilate_size = int(face_size * dilate_ratio)
         dilate_size = max(3, dilate_size)
         dilate_size = dilate_size + 1 if dilate_size % 2 == 0 else dilate_size
 
-        blur_size = int(face_size * 0.22)
+        blur_size = int(face_size * blur_ratio)
         blur_size = max(9, blur_size)
         blur_size = blur_size + 1 if blur_size % 2 == 0 else blur_size
 
@@ -343,6 +346,27 @@ class SwapEngine:
             return True, f"low confidence ({score:.2f})"
 
         return True, None
+
+    def _profile_swap_controls(self, alignment_note, enhance, enhance_strength, swap_blend_strength, match_color):
+        """
+        Uses a softer, more target-preserving blend for profile/occluded faces.
+        This keeps difficult-angle swaps active while reducing warping and enhancer artifacts.
+        """
+        controls = {
+            "is_difficult": alignment_note is not None,
+            "enhance": enhance,
+            "enhance_strength": enhance_strength,
+            "swap_blend_strength": swap_blend_strength,
+            "match_color": match_color,
+        }
+        if alignment_note is None:
+            return controls
+
+        controls["match_color"] = True
+        controls["swap_blend_strength"] = min(swap_blend_strength, 0.82)
+        if enhance:
+            controls["enhance_strength"] = min(enhance_strength, 0.35)
+        return controls
 
     def face_swap(self, source_img, target_img, enhance=True, enhance_strength=0.8, match_color=True, match_scale=False, custom_scale=1.0, det_thresh=0.5, face_upscale_resolution="512", handle_occlusions=True, target_rotation=None, log_callback=None, swap_blend_strength=0.85, match_face_shape=True, pipeline=None, target_faces=None, target_detector="SCRFD (Default)", face_mask_type="InsightFace 106-Point"):
         """
@@ -477,8 +501,10 @@ class SwapEngine:
             if not can_align:
                 log(f"[Face {idx+1}] Cannot swap face: {alignment_note}.")
                 continue
+            profile_controls = self._profile_swap_controls(alignment_note, enhance, enhance_strength, swap_blend_strength, match_color)
             if alignment_note:
                 log(f"[Face {idx+1}] Forcing difficult-angle swap: {alignment_note}.")
+                log(f"[Face {idx+1}] Auto profile mode: blend={profile_controls['swap_blend_strength']:.2f}, enhance={profile_controls['enhance_strength']:.2f}.")
 
             log(f"[Face {idx+1}] Swapping with score: {face.det_score:.2f}...")
             # Calculate scale factor
@@ -571,22 +597,22 @@ class SwapEngine:
                     target_face_crop_scaled = target_face_crop
                 
                 # 1. Match lighting/color to target face
-                if match_color:
+                if profile_controls["match_color"]:
                     log(f"[Face {idx+1}] Matching lighting & skin tone (Reinhard Color Transfer)...")
                     processed_crop = self._match_brightness_contrast(processed_crop, target_face_crop_scaled)
                     
                 # 2. Restoring face using GFPGAN for maximum sharpness
-                if enhance:
-                    log(f"[Face {idx+1}] Restoring facial details using GFPGAN (Strength: {enhance_strength})...")
+                if profile_controls["enhance"]:
+                    log(f"[Face {idx+1}] Restoring facial details using GFPGAN (Strength: {profile_controls['enhance_strength']})...")
                     restored_crop = self._restore_face_gfpgan(processed_crop, gfpgan_session=gfpgan_session)
                     # Blend based on enhance strength
-                    processed_crop = cv2.addWeighted(restored_crop, enhance_strength, processed_crop, 1.0 - enhance_strength, 0)
+                    processed_crop = cv2.addWeighted(restored_crop, profile_controls["enhance_strength"], processed_crop, 1.0 - profile_controls["enhance_strength"], 0)
                 
                 # 3. Blend swapped face with original target face to maximize identity similarity
-                if swap_blend_strength < 1.0:
+                if profile_controls["swap_blend_strength"] < 1.0:
                     if target_face_crop_scaled.shape != processed_crop.shape:
                         target_face_crop_scaled = cv2.resize(target_face_crop_scaled, (processed_crop.shape[1], processed_crop.shape[0]), interpolation=cv2.INTER_CUBIC)
-                    processed_crop = cv2.addWeighted(processed_crop, swap_blend_strength, target_face_crop_scaled, 1.0 - swap_blend_strength, 0)
+                    processed_crop = cv2.addWeighted(processed_crop, profile_controls["swap_blend_strength"], target_face_crop_scaled, 1.0 - profile_controls["swap_blend_strength"], 0)
 
                 # Resize back to bounding box dimensions for blending (only if shape differs)
                 if processed_crop.shape[0] != (y2 - y1) or processed_crop.shape[1] != (x2 - x1):
@@ -696,7 +722,7 @@ class SwapEngine:
                 
                 # Dynamic feathering based on face size to avoid visible cheek/jaw seams.
                 face_h, face_w = swapped_face_crop.shape[:2]
-                mask = self._soften_face_mask(mask, face_h, face_w)
+                mask = self._soften_face_mask(mask, face_h, face_w, conservative=profile_controls["is_difficult"])
                 
                 # 4. Handle Occlusions (hands, hair, objects blocking the face)
                 if handle_occlusions and occluder_session is not None:

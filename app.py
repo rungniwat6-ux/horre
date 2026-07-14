@@ -531,6 +531,33 @@ def perform_video_swap(source_img, target_video, enhance, enhance_strength, matc
         """
         yield None, logs, error_html
 
+def perform_3d_head_composite(head_model, target_video, anchor_mode, render_backend, head_scale, vertical_offset, save_path=""):
+    logs = "[3D Head] Initializing separate 3D head composite pipeline...\n"
+
+    model_path = getattr(head_model, "name", head_model)
+    video_path = target_video
+
+    if not model_path:
+        return None, logs + "[Error] Upload a 3D head model first.\n"
+    if not video_path:
+        return None, logs + "[Error] Upload a target video first.\n"
+
+    supported_exts = (".glb", ".gltf", ".obj", ".fbx", ".blend")
+    model_ext = os.path.splitext(str(model_path))[1].lower()
+    if model_ext not in supported_exts:
+        return None, logs + f"[Error] Unsupported 3D model format: {model_ext}. Use GLB, GLTF, OBJ, FBX, or BLEND.\n"
+
+    logs += f"[3D Head] Model: {model_path}\n"
+    logs += f"[3D Head] Target video: {video_path}\n"
+    logs += f"[3D Head] Anchor mode: {anchor_mode}\n"
+    logs += f"[3D Head] Render backend: {render_backend}\n"
+    logs += f"[3D Head] Scale: {head_scale:.2f}, vertical offset: {vertical_offset:.2f}\n"
+    if save_path and save_path.strip():
+        logs += f"[3D Head] Requested save path: {save_path.strip()}\n"
+    logs += "[3D Head] Menu is ready and isolated from normal face swap.\n"
+    logs += "[3D Head] Renderer connection is not enabled yet. Next step is wiring the selected backend to track neck/shoulders and render the model per frame.\n"
+    return None, logs
+
 # Custom CSS for Premium Dark UI theme
 custom_css = """
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
@@ -987,6 +1014,49 @@ with gr.Blocks() as demo:
             btn_clear_vram_vid.click(
                 fn=clear_vram_callback,
                 outputs=[video_status]
+            )
+
+        # --- TAB 3: 3D Head Compositing ---
+        with gr.TabItem("3D Head Composite"):
+            with gr.Row():
+                with gr.Column(scale=1):
+                    gr.Markdown("### 1. Upload 3D Head & Target")
+                    head3d_model = gr.File(
+                        label="3D Head Model (GLB, GLTF, OBJ, FBX, BLEND)",
+                        file_types=[".glb", ".gltf", ".obj", ".fbx", ".blend"],
+                    )
+                    head3d_target_video = gr.Video(label="Target Video (Neck/shoulder anchor)", height=280)
+                    head3d_save_path = gr.Textbox(label="Save Output Video to Path (Optional)", placeholder="e.g. output/head3d_result.mp4", value="")
+
+                with gr.Column(scale=1):
+                    gr.Markdown("### 2. Output & Action")
+                    head3d_output_video = gr.Video(label="3D Head Composite Result", height=280)
+                    btn_head3d = gr.Button("Start 3D Head Composite", variant="primary")
+                    head3d_status = gr.Textbox(label="3D Head Process Logs", interactive=False, lines=10, max_lines=14, elem_classes="log-box")
+
+                with gr.Column(scale=1):
+                    gr.Markdown("### 3. 3D Tracking & Render Settings")
+                    head3d_anchor_mode = gr.Dropdown(
+                        choices=["Neck/Shoulder Tracking", "Manual Center Anchor", "Face Re-entry Assist"],
+                        value="Neck/Shoulder Tracking",
+                        label="Anchor Mode"
+                    )
+                    head3d_backend = gr.Dropdown(
+                        choices=["Blender Offscreen", "OpenGL/ModernGL", "CPU Preview"],
+                        value="Blender Offscreen",
+                        label="Render Backend"
+                    )
+                    head3d_scale = gr.Slider(label="Head Scale", minimum=0.5, maximum=2.0, value=1.0, step=0.05)
+                    head3d_vertical_offset = gr.Slider(label="Vertical Offset", minimum=-1.0, maximum=1.0, value=0.0, step=0.05)
+
+            btn_head3d.click(
+                fn=perform_3d_head_composite,
+                inputs=[
+                    head3d_model, head3d_target_video, head3d_anchor_mode,
+                    head3d_backend, head3d_scale, head3d_vertical_offset,
+                    head3d_save_path
+                ],
+                outputs=[head3d_output_video, head3d_status]
             )
 
     gr.Markdown("Built with Python, Gradio, ONNX Runtime, and OpenCV.", elem_classes="footer-text")

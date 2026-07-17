@@ -1471,7 +1471,7 @@ with gr.Blocks() as demo:
                         swapper_model_img = gr.Dropdown(choices=available_swappers, value=default_swapper, label="Face Swapper Model")
                         restorer_model_img = gr.Dropdown(choices=available_restorers, value=default_restorer, label="Face Restorer (Enhancer) Model")
                         target_detector_img = gr.Dropdown(choices=["SCRFD (Default)", "YOLOv11-Face"], value="SCRFD (Default)", label="Target Face Detector Model")
-                        face_mask_type_img = gr.Dropdown(choices=["InsightFace 106-Point", "MediaPipe FaceMesh (468-Point)"], value="MediaPipe FaceMesh (468-Point)", label="Face Masking/Blending Method")
+                        face_mask_type_img = gr.Dropdown(choices=["InsightFace 106-Point", "MediaPipe FaceMesh (468-Point)", "MediaPipe FaceMesh 3D Pose (Best)"], value="MediaPipe FaceMesh 3D Pose (Best)", label="Face Masking/Blending Method")
                     
                     with gr.Group():
                         gr.Markdown("⚙️ **Hardware Device**")
@@ -1582,7 +1582,7 @@ with gr.Blocks() as demo:
                         swapper_model_vid = gr.Dropdown(choices=available_swappers, value=default_swapper, label="Face Swapper Model")
                         restorer_model_vid = gr.Dropdown(choices=available_restorers, value=default_restorer, label="Face Restorer (Enhancer) Model")
                         target_detector_vid = gr.Dropdown(choices=["SCRFD (Default)", "YOLOv11-Face"], value="SCRFD (Default)", label="Target Face Detector Model")
-                        face_mask_type_vid = gr.Dropdown(choices=["InsightFace 106-Point", "MediaPipe FaceMesh (468-Point)"], value="MediaPipe FaceMesh (468-Point)", label="Face Masking/Blending Method")
+                        face_mask_type_vid = gr.Dropdown(choices=["InsightFace 106-Point", "MediaPipe FaceMesh (468-Point)", "MediaPipe FaceMesh 3D Pose (Best)"], value="MediaPipe FaceMesh 3D Pose (Best)", label="Face Masking/Blending Method")
                     
                     with gr.Group():
                         gr.Markdown("⚙️ **Hardware Device**")
@@ -1671,61 +1671,6 @@ with gr.Blocks() as demo:
             btn_clear_vram_vid.click(
                 fn=clear_vram_callback,
                 outputs=[video_status]
-            )
-
-        # --- TAB 3: 3D Head Compositing ---
-        with gr.TabItem("3D Head Composite"):
-            with gr.Row():
-                with gr.Column(scale=1):
-                    gr.Markdown("### 1. Upload 3D Head & Target")
-                    head3d_model = gr.File(
-                        label="3D Head Model (GLB, GLTF, OBJ, FBX, BLEND)",
-                        file_types=[".glb", ".gltf", ".obj", ".fbx", ".blend"],
-                    )
-                    head3d_target_image = gr.Image(type="numpy", label="Target Image (Neck/shoulder anchor)", height=220)
-                    head3d_target_video = gr.Video(label="Target Video (Neck/shoulder anchor)", height=280)
-                    head3d_save_path = gr.Textbox(label="Save Output Video to Path (Optional)", placeholder="e.g. output/head3d_result.mp4", value="")
-
-                with gr.Column(scale=1):
-                    gr.Markdown("### 2. Output & Action")
-                    head3d_output_image = gr.Image(type="numpy", label="3D Head Image Result", height=220)
-                    head3d_output_video = gr.Video(label="3D Head Composite Result", height=280)
-                    btn_head3d_img = gr.Button("Start 3D Head Image", variant="secondary")
-                    btn_head3d = gr.Button("Start 3D Head Composite", variant="primary")
-                    head3d_status = gr.Textbox(label="3D Head Process Logs", interactive=False, lines=10, max_lines=14, elem_classes="log-box")
-
-                with gr.Column(scale=1):
-                    gr.Markdown("### 3. 3D Tracking & Render Settings")
-                    head3d_anchor_mode = gr.Dropdown(
-                        choices=["Neck/Shoulder Tracking", "Manual Center Anchor", "Face Re-entry Assist"],
-                        value="Neck/Shoulder Tracking",
-                        label="Anchor Mode"
-                    )
-                    head3d_backend = gr.Dropdown(
-                        choices=["CPU Preview (Working)", "Blender Offscreen", "OpenGL/ModernGL"],
-                        value="CPU Preview (Working)",
-                        label="Render Backend"
-                    )
-                    head3d_scale = gr.Slider(label="Head Scale", minimum=0.5, maximum=2.0, value=1.0, step=0.05)
-                    head3d_vertical_offset = gr.Slider(label="Vertical Offset", minimum=-1.0, maximum=1.0, value=0.0, step=0.05)
-
-            btn_head3d.click(
-                fn=perform_3d_head_composite,
-                inputs=[
-                    head3d_model, head3d_target_video, head3d_anchor_mode,
-                    head3d_backend, head3d_scale, head3d_vertical_offset,
-                    head3d_save_path
-                ],
-                outputs=[head3d_output_video, head3d_status]
-            )
-
-            btn_head3d_img.click(
-                fn=perform_3d_head_image_composite,
-                inputs=[
-                    head3d_model, head3d_target_image, head3d_anchor_mode,
-                    head3d_backend, head3d_scale, head3d_vertical_offset
-                ],
-                outputs=[head3d_output_image, head3d_status]
             )
 
     gr.Markdown("Built with Python, Gradio, ONNX Runtime, and OpenCV.", elem_classes="footer-text")

@@ -644,7 +644,7 @@ class SwapEngine:
                 continue
 
             mesh_analysis = None
-            if face_mask_type == "MediaPipe FaceMesh (468-Point)":
+            if face_mask_type in ("MediaPipe FaceMesh (468-Point)", "MediaPipe FaceMesh 3D Pose (Best)"):
                 mesh_analysis = self._analyze_face_mesh(target_oriented, face)
                 mesh_note = self._mesh_pose_note(mesh_analysis)
                 if mesh_note:
@@ -782,7 +782,7 @@ class SwapEngine:
                 mask = np.zeros(swapped_face_crop.shape[:2], dtype=np.float32)
                 
                 # Option A: Google MediaPipe FaceMesh mask
-                if face_mask_type == "MediaPipe FaceMesh (468-Point)":
+                if face_mask_type in ("MediaPipe FaceMesh (468-Point)", "MediaPipe FaceMesh 3D Pose (Best)"):
                     try:
                         if mesh_analysis is None:
                             mesh_analysis = self._analyze_face_mesh(target_oriented, face)

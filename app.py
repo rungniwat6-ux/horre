@@ -221,7 +221,7 @@ def preview_selected_frame(source_img_path, video_path, frame_index, enhance, en
         
     # Determine the execution provider based on device_mode and selected_gpus
     if device_mode == "GPU Mode" and selected_gpus:
-        execution_device = selected_gpus[0]
+        execution_device = selected_gpus[0] if isinstance(selected_gpus, (list, tuple)) else selected_gpus
     else:
         execution_device = "CPU Only"
         
@@ -399,8 +399,9 @@ def perform_video_swap(source_img, target_video, enhance, enhance_strength, matc
         
     # Determine the execution provider based on device_mode and selected_gpus
     if device_mode == "GPU Mode" and selected_gpus:
-        gpus_to_use = selected_gpus
-        provider_log = f"GPU Mode (Selected GPUs: {gpus_to_use})"
+        selected_gpu = selected_gpus[0] if isinstance(selected_gpus, (list, tuple)) else selected_gpus
+        gpus_to_use = [selected_gpu]
+        provider_log = f"GPU Mode (Selected GPU: {selected_gpu})"
     else:
         gpus_to_use = []
         provider_log = "CPU Only"
@@ -1374,7 +1375,7 @@ with gr.Blocks() as demo:
                     with gr.Group():
                         gr.Markdown("⚙️ **Hardware Device**")
                         device_mode_vid = gr.Radio(choices=["GPU Mode", "CPU Only"], value="GPU Mode" if available_gpus else "CPU Only", label="Processing Device Mode")
-                        gpu_choices_vid = gr.CheckboxGroup(choices=available_gpus, value=available_gpus, label="Select GPUs to use", visible=(len(available_gpus) > 0))
+                        gpu_choices_vid = gr.Dropdown(choices=available_gpus, value=available_gpus[0] if available_gpus else None, label="Select GPU Device", visible=(len(available_gpus) > 0))
                     
                     def update_gpu_visibility_vid(mode):
                         return gr.update(visible=(mode == "GPU Mode" and len(available_gpus) > 0))

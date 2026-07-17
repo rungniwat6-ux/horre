@@ -977,10 +977,12 @@ class SwapEngine:
                 raise RuntimeError(error_msg)
             log(f"[Video Process] {desc} executed successfully.")
 
-        # Parse selected_gpus to get numeric GPU IDs
+        # Parse selected_gpus to get a single numeric GPU ID.
+        # Older UI versions passed a list; current UI passes one dropdown value.
         gpu_ids = []
         if selected_gpus:
-            for g in selected_gpus:
+            selected_gpu_values = selected_gpus if isinstance(selected_gpus, (list, tuple)) else [selected_gpus]
+            for g in selected_gpu_values[:1]:
                 import re
                 m = re.search(r'\d+', str(g))
                 if m:
@@ -995,7 +997,7 @@ class SwapEngine:
                 self.cached_pipelines[cache_key] = CPUPipeline(self.inswapper_path, self.gfpgan_path, self.occluder_path)
             pipelines.append(self.cached_pipelines[cache_key])
         else:
-            # GPU Mode
+            # GPU Mode - single device only. Multi-GPU processing was slower on this workload.
             for gpu_id in gpu_ids:
                 cache_key = f"gpu_{gpu_id}"
                 need_init = True
